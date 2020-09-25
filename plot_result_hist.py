@@ -26,4 +26,4 @@ def pairwisescat(cfit):
     plt.show()
 
 #     plt.tight_layout()
-# pairwisescat('tau_2gyr_newdfk_sn_020_ps_000_r000_model_fits.cfit')
+pairwisescat('tau_2gyr_newdfk_sn_020_ps_000_r000_model_fits.cfit')
