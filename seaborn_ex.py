@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import seaborn as sns
 from scipy import stats
+import time
 
 def corrfunc(x, y, **kws):
     """Plots value of Pearson coeff on plot."""
@@ -38,6 +39,7 @@ def seaborn_pairwise(data, columns=None):
     #Import data as a dataframe, name the columns
     df = pandas.DataFrame(data=data, columns=columns)
 
+    
     #Find best params
     #First column (fitness metric) is minimal
     best_x = df[df.iloc[:,0] == df.iloc[:,0].min()].iloc[0,:]
@@ -55,20 +57,27 @@ def seaborn_pairwise(data, columns=None):
     g.map_diag(sns.kdeplot, lw=2)#, bw_method=0.3)
     #Calculate some statistics of the column data and add to diagonal plots
     g.map_diag(show_stats)
-
+    
+    #To get the name of the cfit file, removing the '.cfit' extension from the name
+    filename = (str(datfile).rsplit('.', 1)[0]) 
+    #Setting a title to the plot
+    g.fig.suptitle(filename+'_pairwise_hist')
+ 
     #For each of the diagonal plots add vertical lines denoting the best value that was found
     for i in range(len(g.diag_axes.flat)):
         ax = g.diag_axes.flat[i]
-        #ax.axvline(p[i],color='red',ls='--', label='Input')
+#         ax.axvline(p[i],color='red',ls='--', label='Input')
         ax.axvline(best_x[i],color='green',ls='-', label='Best')
-        ax.legend(frameon=False, loc=0)
+        ax.legend(frameon=False, loc=0)    
 
     #Plot
     plt.tight_layout()
     plt.show()
-    #Save
-
-
+    
+    #Save figure as a PDF with the same file name
+    pdfname = filename + '_pairwise_hist.pdf'
+    g.savefig(pdfname)
+ 
     
 if __name__ == "__main__":
 
@@ -82,6 +91,12 @@ if __name__ == "__main__":
     #NOTE 1: Here I take the log10 of the data since I know there are some small numbers and
     #scale it by 100 too. This just ensures we have larger values that are easier to compare
     #NOTE 2: Here I also exclude the fitness metrix cause it turns out they are all basically the same
-    data = 1e2*np.log10(np.genfromtxt(datfile).T[:,1:])
+    #data = 1e2*np.log10(np.genfromtxt(datfile).T[:,1:])
+    
+    data = np.genfromtxt(datfile).T[:,1:]
+    
+    #Setting column names 
+    col_names = ['Y','I1','I2', 'O']
+    
     #Plot
-    seaborn_pairwise(data)
+    seaborn_pairwise(data, columns=col_names)
