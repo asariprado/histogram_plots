@@ -76,7 +76,7 @@ def seaborn_pairwise(data, columns=None):
     # Set the column entry as the title for each axes 
     for ax, title in zip(g.axes.flat, columns):
         ax.set(title=title) 
-        # going to try to set title for each subplot....
+        # going to try to set title for each subplot ....
         
     #Plot
     plt.tight_layout()
