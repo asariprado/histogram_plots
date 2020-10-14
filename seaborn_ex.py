@@ -58,18 +58,26 @@ def seaborn_pairwise(data, columns=None):
     #Calculate some statistics of the column data and add to diagonal plots
     g.map_diag(show_stats)
     
-    #To get the name of the cfit file, removing the '.cfit' extension from the name
-    filename = (str(datfile).rsplit('.', 1)[0]) 
-    #Setting a title to the plot
-    g.fig.suptitle(filename+'_pairwise_hist')
- 
+
     #For each of the diagonal plots add vertical lines denoting the best value that was found
     for i in range(len(g.diag_axes.flat)):
         ax = g.diag_axes.flat[i]
 #         ax.axvline(p[i],color='red',ls='--', label='Input')
         ax.axvline(best_x[i],color='green',ls='-', label='Best')
-        ax.legend(frameon=False, loc=0)    
+        ax.legend(frameon=False, loc=0) 
+        
+    
+    #To get the name of the cfit file, removing the '.cfit' extension from the name
+    filename = (str(datfile).rsplit('.', 1)[0]) 
+    
+    #Setting a title to the entire figure based on filename (for now) - change this to have a diff title? 
+    g.fig.suptitle(filename+'_pairwise_hist')
 
+    # Set the column entry as the title for each axes 
+    for ax, title in zip(g.axes.flat, columns):
+        ax.set(title=title) 
+        # going to try to set title for each subplot....
+        
     #Plot
     plt.tight_layout()
     plt.show()
@@ -77,6 +85,7 @@ def seaborn_pairwise(data, columns=None):
     #Save figure as a PDF with the same file name
     pdfname = filename + '_pairwise_hist.pdf'
     g.savefig(pdfname)
+    
  
     
 if __name__ == "__main__":
@@ -87,6 +96,7 @@ if __name__ == "__main__":
 
     #Read file name
     datfile = sys.argv[1]
+   
     #Grab data with pandas and transpose so each row represents parameter values
     #NOTE 1: Here I take the log10 of the data since I know there are some small numbers and
     #scale it by 100 too. This just ensures we have larger values that are easier to compare
