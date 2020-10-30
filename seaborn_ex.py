@@ -53,37 +53,27 @@ def mass_fraction_conversion(cfitfile):
     #GREG: Try np.genfromtxt and retry masking using something like
     # met_mask = all_model_norms[0,:] == solar_met #Takes first column and selects metallicity = 0.02
     # N_i = all_model_norms[met_mask] 
-    G_i = np.loadtxt(gal_norm_file)
-    model_normalizations = np.loadtxt(model_norm_file)
-    stellar_mass = np.loadtxt(masstable_file)
-    
-    
+    G = np.genfromtxt(gal_norm_file)
+    all_model_norms = np.genfromtxt(model_norm_file)
+
     # Only select the normalization factors corresponding to solar metallicities ~ 0.2 
     solar_met = 0.02
-
-    #GREG: Can probably eliminate this section with masking of numpy array above
-    N_i = []
-    for col in model_normalizations:
-        if col[0] == solar_met:
-            N_i.append(col[2])
-
-    #GREG: Can probably eliminate this section withe the stellar mass formed fraction       
-    stellar_mass_formed = []
-    total_stellar_mass = []
-    for col in stellar_mass:
-        if col[0] == solar_met:
-            stellar_mass_formed.append(col[2]) # == a_i
-            total_stellar_mass.append(col[2] + col[3])
+    met_mask = (all_model_norms[0,:] == solar_met) #Takes first column and selects metallicity = 0.02
+    N_i = all_model_norms[met_mask]
     
-    stellar_mass_formed_fraction = np.array(stellar_mass_formed) # / np.array(total_stellar_mass
+    #GREG: Can probably eliminate this section with masking of numpy array above
+#     N_i = []
+#     for col in model_normalizations:
+#         if col[0] == solar_met:
+#             N_i.append(col[2])
+    
     
     # Stellar Mass Formed for each population:
     # a_i = b_i*G/N_i , where b_i are the cfit values
-
-    normalization_factors = G_i/N_i
+    normalization_factors = G/N_i
 
     #GREG: Only need to return the normalization factors
-    return (normalization_factors, stellar_mass_formed_fraction)
+    return normalization_factors
     
     
 
@@ -96,21 +86,23 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./'):
     # I've taken out the datfile keyword and replaced it with output_dir to tell what directory to save file to
     # and I've set the default to save in whatever the current directory is and a output_name keyword
     # to capture what we want to call the output name
-
-# #     Import data as a dataframe, name the columns
-    b_i = pandas.DataFrame(data=data, columns=columns)
-
-    normalization_factors, stellar_mass_formed_fraction = mass_fraction_conversion(cfitfile)[0], mass_fraction_conversion(cfitfile)[1]
     
-    # a_i = b_i*G/N_i
-    a_i = b_i*normalization_factors
+    
+    # Add loop - if __ then plot with mass frac / else just plot input data
+    
+    
+    # Import data as a dataframe, name the columns
+#     b_i = pandas.DataFrame(data=data, columns=columns)
 
-#   # df as: mass fraction = a_i / sum(a_i)
-#    df = a_i / stellar_mass_formed_fraction
-     df = a_i / np.sum(a_i, axis=1)
+#     normalization_factors = mass_fraction_conversion(cfitfile)
+    
+#     # a_i = b_i*G/N_i
+#     a_i = b_i*normalization_factors
 
-#     df = pandas.DataFrame(data=data, columns=columns)
+#     # df: mass fraction = a_i / sum(a_i)
+#     df = a_i / np.sum(a_i, axis=1)
 
+    df = pandas.DataFrame(data=data, columns=columns)
     
     #Find best params
     #First column (fitness metric) is minimal
@@ -137,19 +129,14 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./'):
         ax.axvline(best_x[i],color='green',ls='-', label='Best')
         ax.legend(frameon=False, loc=0) 
         
-
-    #GREG: Can probably eliminate this comment block
-    #To get the name of the cfit file, removing the '.cfit' extension from the name
-    #fullfilename = (str(datfile).rsplit('.', 1)[0])
-    #Filename should contain full path to .cfit and so new pdf name should be saved to same location
-    
-    #Setting a title to the entire figure based on filename (for now) - change this to have a diff title? 
+        
+    #Setting a title to the entire figure based on filename  
     g.fig.suptitle(output_name+'_pairwise_hist')
     
-
     # Set the column entry as the title for each axes 
     for ax, title in zip(g.axes.flat, columns):
         ax.set(title=title) 
+        
         
     #Plot
     plt.tight_layout()
@@ -160,15 +147,13 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./'):
     pdfname = output_dir+output_name+'_pairwise_hist.pdf'
     
 #   Save this pdf file in a results_*_plots folder inside the current directory
-    ## update to obtain current directory name to save plots to a folder : results_***stelib****_pairwise_plots 
 
     #Check if dir exists if not make it
     ##GREG: Found the code I was thinking of
     #Make directories for file if they don't exist
     os.makedirs(os.path.dirname(pdfname), exist_ok=True)
-    g.savefig(pdfname))
-#     g.savefig(pdfname)
-
+    g.savefig(pdfname)
+    
 
 def plot_stellar_mass_fractions(cfitfile):
     """Read in model cfits file and plot and save pairwise histograms."""
@@ -177,11 +162,11 @@ def plot_stellar_mass_fractions(cfitfile):
     filename = cfitfile.split('/')[-1]
     #Define output name
     output_name = filename.split('.cfit')[0]
-    fullpath = "/".join(fullfilename.split('/')[0:-1])
+    fullpath = "/".join(filename.split('/')[0:-1])
     #Define output directory
     output_dir = fullpath+'/results_pairwise_plots/'
 
-    #Reading in bis
+    #Reading in b_i's
     #NOTE: Excluding first row which is  metric
     #NOTE: Taking transpose for pandas
     data = np.genfromtxt(cfitfile).T[:,1:]
@@ -190,6 +175,14 @@ def plot_stellar_mass_fractions(cfitfile):
 
     #Convert bis to ais and mass fractions
     #Convert to stellar mass fraction
+    normalization_factors = mass_fraction_conversion(filename)
+    
+    b_i = pandas.DataFrame(data=filename, columns=columns)
+
+    a_i = b_i*normalization_factors
+    
+    massfrac_data = a_i / np.sum(a_i,axis=1)
+    
     
     #Plot
     #Plot pairwise histograms and save them to output directory
@@ -220,10 +213,10 @@ if __name__ == "__main__":
    
     #Old original plots
     #Plot pairwise histogram for cfit data
-    #plot_cfit_data(datfile)
+    plot_cfit_data(datfile)
 
     #New stellar mass fraction plots
     #Plot pairwise histograms of stellar mass fractions from cfit data
-    plot_stellar_mass_fractions(datfile)
+#     plot_stellar_mass_fractions(datfile)
 
     
