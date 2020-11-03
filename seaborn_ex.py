@@ -47,10 +47,7 @@ def mass_fraction_conversion(cfitfile):
     model_norm_file = file_prefix+'_model_normal_fact.dat'
     masstable_file = file_prefix+'_masstable.tab'
     
-
-    #GREG: Try np.genfromtxt and retry masking using something like
-    # met_mask = all_model_norms[0,:] == solar_met #Takes first column and selects metallicity = 0.02
-    # N_i = all_model_norms[met_mask] 
+    
     G = np.genfromtxt(gal_norm_file)
     all_model_norms = np.genfromtxt(model_norm_file)
 
@@ -60,21 +57,16 @@ def mass_fraction_conversion(cfitfile):
      
     N_i = all_model_norms[met_mask].T[-1]
     
-    print(N_i)
     # Stellar Mass Formed for each population:  a_i = b_i*G/N_i , where b_i are the cfit values
     normalization_factors = G/N_i
     
-    print(normalization_factors)
-    #Grab filename and full path
     return normalization_factors
     
     
 
 def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', normalized=None, mass_frac=[]):
     
-    """Plots pairwise scatterplot and histograms using seaborn, with the option 
-        to plot normalized data with stellar mass fraction if 'normalized'=True, 
-        otherwise the raw data will be plotted."""
+    """Plots pairwise scatterplot and histograms using seaborn."""
 
     ##GREG: can probably revert this function back to NOT include the mass fraction, etc calculations
     # and let it be more general. We will want to check that our filename saving in new folder works.
@@ -84,12 +76,7 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     
       
     df = pandas.DataFrame(data=data, columns=columns)
-    
-    # Added keyword parameter 'normalized' with default value None - if True, plot with mass fraction, else just plot data  
-    if normalized != None: #  a_i = b_i*normalization_factors
-        a_i = df * mass_frac  # a_i = b_i * G / N_i  // these are the values in masstable.tab
-        df = a_i.div(np.sum(a_i, axis=1),axis=0) # mass fraction ~  a_i / sum(a_i)
-        
+
     #Find best params
     #First column (fitness metric) is minimal
     best_x = df[df.iloc[:,0] == df.iloc[:,0].min()].iloc[0,:]
@@ -127,24 +114,16 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     plt.tight_layout()
     plt.show()
    
-
     #Save figure as a PDF with the same file name
     #GREG: I updated this to include path to output
     pdfname = output_dir+output_name+'_pairwise_hist.pdf'
     print("Output PDF will be",pdfname)
-#     pdfname = output_name+'_pairwise_hist.pdf'
     
     #Save this pdf file in a results_*_plots folder inside the current directory
     #Check if dir exists if not make it
     #Make directories for file if they don't exist
     os.makedirs(os.path.dirname(pdfname), exist_ok=True)
-    #GREG: I uncommented this since we need to to automatically create the path to where we want the
-    #new file to go.
-#     if not os.path.exists(pdfname):
-#         os.makedirs(pdfname)
- 
-    # FIX :  OSError: [Errno 30] Read-only file system: '/results_pairwise_plots'
-
+    
     g.savefig(pdfname)
     
     
@@ -166,7 +145,7 @@ def plot_stellar_mass_fractions(cfitfile, nssps=4):
     output_dir = fullpath+'/results_pairwise_plots/'
 
     #Reading in b_i's
-    #NOTE: Excluding first row which is  metric
+    #NOTE: Excluding first row which is metric
     #NOTE: Taking transpose for pandas
     data = np.genfromtxt(cfitfile).T[:,1:]
     #Setting column names 
@@ -178,15 +157,13 @@ def plot_stellar_mass_fractions(cfitfile, nssps=4):
     normalization_factors = mass_fraction_conversion(cfitfile)
     data = np.genfromtxt(cfitfile).T[:,1:]
     
+    
     #Grab the SSP coefficients
     b_i = data[:,0:nssps]
     #Convert to solar masses
     a_i = b_i*normalization_factors
     #Convert to mass fractions
     massfrac_data = np.asarray([a_i[i]/np.sum(a_i,axis=1)[i] for i in range(a_i.shape[0])])
-    # ^^^ I removed this conversion from this function bc it passed mass_fracdata to seaborn_pairwise
-    # as an np.array and I had to convert it to a df again in seaborn func, thought it would
-    # be better to just convert the data to df once in the seaborn func.
     #GREG: Here you don't need to convert to a pandas data frame, you can work with the data as numpy array
     #I use a list comprehension here to do the ssp divison by the sum as there was a brodcasting error in just doing the plain divison
     #Numpy doesn't let you divide something that has a 2-d shape 300,4 by something that's 1 d 300,
@@ -195,7 +172,7 @@ def plot_stellar_mass_fractions(cfitfile, nssps=4):
     #Plot
     #Plot pairwise histograms and save them to output directory
     #GREG: Since we're doing the conversion here now, I switch the normalized keyword to None
-    seaborn_pairwise(data=massfrac_data, columns=col_names, output_name=output_name,output_dir=output_dir, normalized=None,mass_frac=normalization_factors)
+    seaborn_pairwise(data=massfrac_data, columns=col_names, output_name=output_name,output_dir=output_dir)
 
 
 def plot_cfit_data(cfitfile):
@@ -231,7 +208,7 @@ if __name__ == "__main__":
    
     #Old original plots
     #Plot pairwise histogram for cfit data
-    #plot_cfit_data(datfile) 
+#     plot_cfit_data(datfile) 
 
     #New stellar mass fraction plots
     #Plot pairwise histograms of stellar mass fractions from cfit data
