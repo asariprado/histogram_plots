@@ -37,6 +37,7 @@ def show_stats(x, **kws):
     
 def mass_fraction_conversion(cfitfile):
     """ Returns conversion coefficient to multiply b_i (cfit values) by to obtain mass fraction // stellar mass formed per population
+        NOTE: cfitfile must include the full path in order to find normalization files.
     """
     #  extracting the cfit file name prefix 
     file_prefix = cfitfile.split('_model_fits.cfit')[0]
@@ -130,12 +131,15 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     #Save figure as a PDF with the same file name
     #GREG: I updated this to include path to output
     pdfname = output_dir+output_name+'_pairwise_hist.pdf'
+    print("Output PDF will be",pdfname)
 #     pdfname = output_name+'_pairwise_hist.pdf'
     
     #Save this pdf file in a results_*_plots folder inside the current directory
     #Check if dir exists if not make it
     #Make directories for file if they don't exist
-#     os.makedirs(os.path.dirname(pdfname), exist_ok=True)
+    os.makedirs(os.path.dirname(pdfname), exist_ok=True)
+    #GREG: I uncommented this since we need to to automatically create the path to where we want the
+    #new file to go.
 #     if not os.path.exists(pdfname):
 #         os.makedirs(pdfname)
  
@@ -145,14 +149,19 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     
     
 
-def plot_stellar_mass_fractions(cfitfile):
+def plot_stellar_mass_fractions(cfitfile, nssps=4):
     """Read in model cfits file, plots with mass fraction conversion and save pairwise histograms."""
 
     #Grab filename and full path
     filename = cfitfile.split('/')[-1]
     #Define output name
     output_name = filename.split('.cfit')[0]+'_mass_fraction'
-    fullpath = "/".join(filename.split('/')[0:-1])
+    #Use full path given in file if use_fullpath is True otherwise save in current directory
+    fullpath = "/".join(cfitfile.split('/')[0:-1])
+    #Let us know if we're not using fullpath
+    if fullpath == '':
+        print("PLease include full path to cfitfile. Exiting.")
+        sys.exit(1)
     #Define output directory
     output_dir = fullpath+'/results_pairwise_plots/'
 
@@ -165,19 +174,28 @@ def plot_stellar_mass_fractions(cfitfile):
 
     
     #Convert to stellar mass fraction
-    normalization_factors = mass_fraction_conversion(filename)
-#     data = np.genfromtxt(cfitfile).T[:,1:]
-#     b_i = pandas.DataFrame(data=data, columns=col_names)
-#     a_i = b_i*normalization_factors 
-#     massfrac_data = a_i / np.sum(a_i,axis=1)
+    #This mass conversion function expects a cfitfilename that is a full path in order to find normalization files
+    normalization_factors = mass_fraction_conversion(cfitfile)
+    data = np.genfromtxt(cfitfile).T[:,1:]
+    
+    #Grab the SSP coefficients
+    b_i = data[:,0:nssps]
+    #Convert to solar masses
+    a_i = b_i*normalization_factors
+    #Convert to mass fractions
+    massfrac_data = np.asarray([a_i[i]/np.sum(a_i,axis=1)[i] for i in range(a_i.shape[0])])
     # ^^^ I removed this conversion from this function bc it passed mass_fracdata to seaborn_pairwise
     # as an np.array and I had to convert it to a df again in seaborn func, thought it would
     # be better to just convert the data to df once in the seaborn func.
+    #GREG: Here you don't need to convert to a pandas data frame, you can work with the data as numpy array
+    #I use a list comprehension here to do the ssp divison by the sum as there was a brodcasting error in just doing the plain divison
+    #Numpy doesn't let you divide something that has a 2-d shape 300,4 by something that's 1 d 300,
     
     
     #Plot
     #Plot pairwise histograms and save them to output directory
-    seaborn_pairwise(data, columns=col_names, output_name=output_name,output_dir=output_dir, normalized=True,mass_frac=normalization_factors)
+    #GREG: Since we're doing the conversion here now, I switch the normalized keyword to None
+    seaborn_pairwise(data=massfrac_data, columns=col_names, output_name=output_name,output_dir=output_dir, normalized=None,mass_frac=normalization_factors)
 
 
 def plot_cfit_data(cfitfile):
@@ -213,7 +231,7 @@ if __name__ == "__main__":
    
     #Old original plots
     #Plot pairwise histogram for cfit data
-    plot_cfit_data(datfile) 
+    #plot_cfit_data(datfile) 
 
     #New stellar mass fraction plots
     #Plot pairwise histograms of stellar mass fractions from cfit data
