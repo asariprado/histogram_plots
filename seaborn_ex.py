@@ -6,7 +6,7 @@ from matplotlib import cm
 import seaborn as sns
 from scipy import stats
 import time
-import os.path 
+import os #.path 
 
 def corrfunc(x, y, **kws):
     """Plots value of Pearson coeff on plot."""
@@ -71,7 +71,9 @@ def mass_fraction_conversion(cfitfile):
 
 def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', normalized=None, mass_frac=[]):
     
-    """Plots pairwise scatterplot and histograms using seaborn"""
+    """Plots pairwise scatterplot and histograms using seaborn, with the option 
+        to plot normalized data with stellar mass fraction if 'normalized'=True, 
+        otherwise the raw data will be plotted."""
 
     ##GREG: can probably revert this function back to NOT include the mass fraction, etc calculations
     # and let it be more general. We will want to check that our filename saving in new folder works.
@@ -79,10 +81,10 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     # and I've set the default to save in whatever the current directory is and a output_name keyword
     # to capture what we want to call the output name
     
-    # Added keyword parameter 'normalized' with default value None - if True, plot with mass fraction, else just plot data  
+      
     df = pandas.DataFrame(data=data, columns=columns)
-
     
+    # Added keyword parameter 'normalized' with default value None - if True, plot with mass fraction, else just plot data  
     if normalized != None: #  a_i = b_i*normalization_factors
         a_i = df * mass_frac  # a_i = b_i * G / N_i  // these are the values in masstable.tab
         df = a_i.div(np.sum(a_i, axis=1),axis=0) # mass fraction ~  a_i / sum(a_i)
@@ -123,21 +125,24 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     #Plot
     plt.tight_layout()
     plt.show()
-    
-    
-    # FIX :  OSError: [Errno 30] Read-only file system: '/results_pairwise_plots'
+   
 
     #Save figure as a PDF with the same file name
     #GREG: I updated this to include path to output
-    
-#     pdfname = output_dir+output_name+'_pairwise_hist.pdf'
-    pdfname = output_name+'_pairwise_hist.pdf'
+    pdfname = output_dir+output_name+'_pairwise_hist.pdf'
+#     pdfname = output_name+'_pairwise_hist.pdf'
     
     #Save this pdf file in a results_*_plots folder inside the current directory
     #Check if dir exists if not make it
     #Make directories for file if they don't exist
 #     os.makedirs(os.path.dirname(pdfname), exist_ok=True)
+#     if not os.path.exists(pdfname):
+#         os.makedirs(pdfname)
+ 
+    # FIX :  OSError: [Errno 30] Read-only file system: '/results_pairwise_plots'
+
     g.savefig(pdfname)
+    
     
 
 def plot_stellar_mass_fractions(cfitfile):
@@ -158,14 +163,18 @@ def plot_stellar_mass_fractions(cfitfile):
     #Setting column names 
     col_names = ['Y','I1','I2', 'O']
 
-    #Convert bis to ais and mass fractions
+    
     #Convert to stellar mass fraction
     normalization_factors = mass_fraction_conversion(filename)
 #     data = np.genfromtxt(cfitfile).T[:,1:]
 #     b_i = pandas.DataFrame(data=data, columns=col_names)
 #     a_i = b_i*normalization_factors 
 #     massfrac_data = a_i / np.sum(a_i,axis=1)
-  
+    # ^^^ I removed this conversion from this function bc it passed mass_fracdata to seaborn_pairwise
+    # as an np.array and I had to convert it to a df again in seaborn func, thought it would
+    # be better to just convert the data to df once in the seaborn func.
+    
+    
     #Plot
     #Plot pairwise histograms and save them to output directory
     seaborn_pairwise(data, columns=col_names, output_name=output_name,output_dir=output_dir, normalized=True,mass_frac=normalization_factors)
@@ -181,7 +190,7 @@ def plot_cfit_data(cfitfile):
     fullpath = "/".join(filename.split('/')[0:-1])
     # Don't define output directory -- just save in current directory
     
-    #Reading in bis
+    #Reading in b_i's
     data = np.genfromtxt(cfitfile).T[:,1:]
    
     #Setting column names 
