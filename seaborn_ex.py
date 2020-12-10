@@ -31,12 +31,11 @@ def show_stats(x, **kws):
     median = np.median(x)
     std = np.std(x,ddof=1)
     ax = plt.gca()
-    ax.annotate("Mean: {:.2f}\nMedian: {:.2f}\n$\sigma$: {:.3e}".format(mean,median,std), xy=(.6,.3),xycoords=ax.transAxes, fontsize=9)
-
+    ax.annotate("Mean: {:.4f}\nMedian: {:.4f}\n$\sigma$: {:.4e}".format(mean,median,std), xy=(.6,.3),xycoords=ax.transAxes, fontsize=9)
 
     
-def mass_fraction_conversion(cfitfile):
-    """ Returns conversion coefficient to multiply b_i (cfit values) by to obtain mass fraction // stellar mass formed per population
+def mass_fraction_conversion(cfitfile,nssps=4):
+    """ Returns conversion coefficient to multiply b_i (cfit values) by to obtain stellar mass fraction.
         NOTE: cfitfile must include the full path in order to find normalization files.
     """
     #  extracting the cfit file name prefix 
@@ -53,12 +52,34 @@ def mass_fraction_conversion(cfitfile):
 
     # Only select the normalization factors corresponding to solar metallicities ~ 0.2 
     solar_met = 0.02
-    met_mask = (all_model_norms.transpose()[0,:] == solar_met) #Takes first column and selects metallicity = 0.02
-     
-    N_i = all_model_norms[met_mask].T[-1]
+#     met_mask = (all_model_norms.transpose()[0,:] == solar_met) #Takes first column and selects metallicity = 0.02
     
+    
+    #NEXT few masks are changed for creating the histogram plots for lega-c galaxy spectra using 3 ssps instead of 4ssps
+    old_ssps = 9.7500000e+09 #Age of old SSPs
+    met_mask = (all_model_norms.transpose()[0,:] == solar_met) #Takes first column and selects metallicity = 0.02
+    age_mask = (all_model_norms.transpose()[1,:] < old_ssps) #Takes second column and selects all ages less than old_ssps age
+    
+    #Remove the element in met_mask that corresponds to old SSP (since we excluded that in the legac galaxy sspmodel plots)
+    #Create a mask that is True at places where both the metallicity == solar_met AND the age < old_ssps
+    met_and_age_mask = np.empty_like(met_mask, bool)
+    for i in range(len(met_mask)):
+        met_and_age_mask[i] = (met_mask[i] == True and age_mask[i] == True)
+                
+    
+    if nssps == 3:
+        ## Just adding this for legac plots for nasa ppt presentation (excluding old SSPs so we set nssps=3)
+        N_i = all_model_norms[met_and_age_mask].T[-1] # if nssps = 3 and we are excluding the *OLD* SSP, apply metallicity and age mask to filter out all stars with nonsolar metallicity, as well as OLD stars with solar metallicity. So will just get the N_i for just the 3 ssps Y, I1, I2, 
+    else:
+        N_i = all_model_norms[met_mask].T[-1] #For general use (when nssps = 4 : Y,I1,I2,O), just apply metallicity mask for solar metallicity 
+
+
     # Stellar Mass Formed for each population:  a_i = b_i*G/N_i , where b_i are the cfit values
     normalization_factors = G/N_i
+    
+    ## Check if normalization_factors agree with those in the .masstable.tab files:
+    masstable_factors = np.genfromtxt(masstable_file)
+    print('Calculated mass conversion fraction: ', normalization_factors)
     
     return normalization_factors
     
@@ -66,7 +87,7 @@ def mass_fraction_conversion(cfitfile):
 
 def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', normalized=None, mass_frac=[]):
     
-    """Plots pairwise scatterplot and histograms using seaborn."""
+    """Plots pairwise scatterplot and histograms using seaborn. Saves plot to PDF and saves it in a results_*_plots folder in the same directory as the original file."""
 
     ##GREG: can probably revert this function back to NOT include the mass fraction, etc calculations
     # and let it be more general. We will want to check that our filename saving in new folder works.
@@ -94,6 +115,7 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     g.map_diag(sns.kdeplot, lw=2)#, bw_method=0.3)
     #Calculate some statistics of the column data and add to diagonal plots
     g.map_diag(show_stats)
+    #
     
     
     #For each of the diagonal plots add vertical lines denoting the best value that was found
@@ -129,7 +151,8 @@ def seaborn_pairwise(data, columns=None, output_name=None, output_dir='./', norm
     
 
 def plot_stellar_mass_fractions(cfitfile, nssps=4):
-    """Read in model cfits file, plots with mass fraction conversion and save pairwise histograms."""
+    """Read in model cfits file, applies stellar mass fraction conversion, plots and saves pairwise histograms.
+    nssps = number of ssps"""
 
     #Grab filename and full path
     filename = cfitfile.split('/')[-1]
@@ -147,15 +170,21 @@ def plot_stellar_mass_fractions(cfitfile, nssps=4):
     #Reading in b_i's
     #NOTE: Excluding first row which is metric
     #NOTE: Taking transpose for pandas
-    data = np.genfromtxt(cfitfile).T[:,1:]
-    #Setting column names 
-    col_names = ['Y','I1','I2', 'O']
-
+    data = np.genfromtxt(cfitfile).T[:,1:] 
+    print('Shape of cfit data: ', data.shape)
+    
+    
+    #Setting column names
+    #Size of column names list depends on how many ssps youre using
+    if nssps == 4:
+        col_names = ['Y','I1','I2', 'O']#,'Av']
+    elif nssps ==3:
+        col_names = ['Y','I1','I2']#O, 'Av'] # if excluding old stars, using 3 ssps, only need Y I1 I2 column names - for nasa presentation histogram plots for legac data
+    
     
     #Convert to stellar mass fraction
-    #This mass conversion function expects a cfitfilename that is a full path in order to find normalization files
-    normalization_factors = mass_fraction_conversion(cfitfile)
-    data = np.genfromtxt(cfitfile).T[:,1:]
+    #This mass conversion function expects a cfitfilename that is a FULL PATH NAME in order to find normalization files
+    normalization_factors = mass_fraction_conversion(cfitfile, nssps)
     
     
     #Grab the SSP coefficients
@@ -168,12 +197,23 @@ def plot_stellar_mass_fractions(cfitfile, nssps=4):
     #I use a list comprehension here to do the ssp divison by the sum as there was a brodcasting error in just doing the plain divison
     #Numpy doesn't let you divide something that has a 2-d shape 300,4 by something that's 1 d 300,
     
+
+    #Find the average star formation rate in solar masses per year 
+    # avg star formation rate = (total mass)/(age of universe at that z)
+    #Using z = 1.17, H0 = 70, omega_m = 0.3, omega_vac = 0.7    # from http://www.astro.ucla.edu/~wright/CosmoCalc.html
+    #(this is for the LEGA-C galaxy spectra - legac_M13_230105_v2.0 -- for nasa ppt presentation )
+    total_mass = np.sum(np.sum(massfrac_data,axis=1)) # np.sum(np.sum(a_i,axis=1))
+    age_of_universe =  5.13000000e+09
+    avg_star_formation = total_mass/age_of_universe
+    print("Average star formation rate: ", avg_star_formation, " solar masses per year")
     
+
     #Plot
     #Plot pairwise histograms and save them to output directory
-    #GREG: Since we're doing the conversion here now, I switch the normalized keyword to None
     seaborn_pairwise(data=massfrac_data, columns=col_names, output_name=output_name,output_dir=output_dir)
 
+    
+    
 
 def plot_cfit_data(cfitfile):
     """Read in cfit file and plot."""
@@ -187,11 +227,13 @@ def plot_cfit_data(cfitfile):
     
     #Reading in b_i's
     data = np.genfromtxt(cfitfile).T[:,1:]
+#     data = np.genfromtxt(cfitfile).T[:,:]
+
    
     #Setting column names 
-    col_names = ['Y','I1','I2', 'O']
+    col_names = ['Y','I1','I2', 'O','Av']
     
-    data = np.genfromtxt(cfitfile).T[:,1:]
+#     data = np.genfromtxt(cfitfile).T[:,:]
     
     #Plot
     seaborn_pairwise(data, columns=col_names, output_name=output_name)
@@ -212,6 +254,6 @@ if __name__ == "__main__":
 
     #New stellar mass fraction plots
     #Plot pairwise histograms of stellar mass fractions from cfit data
-    plot_stellar_mass_fractions(datfile)
+#     plot_stellar_mass_fractions(datfile)
+    plot_stellar_mass_fractions(datfile, nssps=3)
 
-    
