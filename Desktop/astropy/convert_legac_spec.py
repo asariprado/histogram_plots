@@ -10,10 +10,8 @@ import matplotlib.pyplot as plt
 
 
 
+# CONVERTING LEGA-C SPECTRA to 1D spectra fits files
 
-
-
-# CONVERTING LEGA-C SPECTRA
 def convert_legac_spec(legac_file):
     """Converts LEGA-C Spectra FITS files to 1D Spectra fits files. 
     Takes in the name of a LEGA-C spectrum with the full path name """
@@ -47,7 +45,7 @@ def convert_legac_spec(legac_file):
        
     
     #Setting header values to the expected header variable names for SSPMODEL
-    #But first need to convert units to Angstroms (or check if they're already in Angstroms?? - how)
+    #But first need to convert units to Angstroms (or check if they're already in Angstroms?? (maybe))
     cdelt = spec_bin * 10  #Use SPEC_BIN as the CDELT1 keyword
     crval1 = wavel_min * 10  #Use WAVELMIN as the CRVAL1 keyword in sspmodel / 1D spec files 
     
@@ -95,11 +93,11 @@ if __name__ == "__main__":
         print("Not enough arguments. Please supply data file name. Exiting")
         sys.exit(1)
 
-    #Read file name - lega-c spectra filename with full path
+    #Read file name - input the lega-c spectra filename with full path to file
     legac_file = sys.argv[1]
    
   
-    #Other functions?
+    #Call the function
     convert_legac_spec(legac_file)
 
     
